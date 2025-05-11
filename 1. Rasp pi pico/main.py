@@ -1,61 +1,39 @@
-from machine import ADC
+from machine import Pin, ADC
 import time
-import select
-import sys
+import utime
 
-# Configuration
-SAMPLE_RATE = 25000  # Hz
-NR_OF_SAMPLES = 3000
-mic_adc = ADC(26) 
-filename = "audio_data.txt"
+mic = ADC(26)  # Conectați output-ul microfonului la pinul GP26 (ADC0)
 
-def sample_microphone():
-    return mic_adc.read_u16() 
 
-def save_to_file(samples):
-    with open(filename, "w") as f:
-        for sample in samples:
-            f.write(f"{sample}\n")
-    print(f"INFO: Data saved to {filename}")
 
-def check_for_command():
-    poll = select.poll()
-    poll.register(sys.stdin, select.POLLIN)
-    
-    if poll.poll(0):  # Non-blocking poll
-        command = sys.stdin.readline().strip().upper()
-        return command
-    return None
+led = Pin("LED", Pin.OUT)
+
+
+SAMPLE_DELAY_US = 40  # 40 microsecunde între eșantioane (aprox. 25kHz)
 
 def main():
-    print("INFO: MAX9814 microphone recorder ready")
 
+    led.value(1)  #
+    
+
+    count = 0
     while True:
-        command = check_for_command()
+       
+        sample = mic.read_u16() >> 4  # Conversia de la 16-bit la 12-bit
         
-        if command == "START":
-            print("INFO: Recording started")
-            samples = []
+        print(sample)
+        
 
-            # Start sampling
-            for _ in range(NR_OF_SAMPLES):
-                value = sample_microphone()
-                samples.append(value)
-                print(f"DATA:{value}")  # Send to Serial
-                time.sleep(1 / SAMPLE_RATE)  # Maintain sample rate
+        count += 1
+        if count >= 1000:
+            led.value(0)
+            utime.sleep_ms(50)
+            led.value(1)
+            count = 0
+            
 
-            print("STOP")  # Indicate recording is complete
-            save_to_file(samples)  # Save to file
+        utime.sleep_us(SAMPLE_DELAY_US)
 
-        elif command == "EXIT":
-            print("INFO: Exiting program")
-            break
-
-        time.sleep(0.1)  # Prevent CPU hogging when idle
-
+# Rulează programul principal
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"ERROR: {e}")
-
+    main()
